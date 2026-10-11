@@ -1,3 +1,4 @@
+from datetime import timezone
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, from_json
 from pyspark.sql.types import (
@@ -63,11 +64,11 @@ def ecrire_dans_mongo(lot, id_lot):
     collection = MongoClient("mongodb://localhost:27017")["wiki_db"]["trends_per_minute"]
     operations = []
     for ligne in lignes:
-        debut = ligne["window"]["start"]
+        debut = ligne["window"]["start"].astimezone(timezone.utc)
         document = {
             "_id": f'{debut.isoformat()}|{ligne["wiki"]}|{ligne["title"]}',
             "window_start": debut,
-            "window_end": ligne["window"]["end"],
+            "window_end": ligne["window"]["end"].astimezone(timezone.utc),
             "wiki": ligne["wiki"],
             "title": ligne["title"],
             "nb_modifs": ligne["nb_modifs"],
