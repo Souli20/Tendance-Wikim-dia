@@ -4,3 +4,4 @@ __pycache__/
 .env
 spark-warehouse/
 logs/
+kafka-data/
