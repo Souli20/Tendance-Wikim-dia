@@ -80,7 +80,7 @@ def afficher():
         return
 
     total = int(df[colonne].sum())
-    pages = df["sujet"].nunique()
+    pages = df.loc[df[colonne] > 0, "sujet"].nunique()
     total_brut = int(df["nb_modifs"].sum())
     bots = int(df["nb_bots"].sum())
     part_bots = 100 * bots / total_brut if total_brut else 0
