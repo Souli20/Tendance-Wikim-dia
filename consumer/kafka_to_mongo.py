@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+
 from kafka import KafkaConsumer
 from pymongo import MongoClient
 
@@ -18,6 +19,8 @@ consumer = KafkaConsumer(
 )
 
 collection = MongoClient(MONGO_URI)[DB_NAME][COLLECTION]
+
+
 def construire_document(evenement):
     return {
         "_id": evenement["meta"]["id"],
@@ -27,12 +30,11 @@ def construire_document(evenement):
         "namespace": evenement.get("namespace"),
         "type": evenement.get("type"),
         "user": evenement.get("user"),
-        "bot": evenement.get("bot", False),
+        "robot": evenement.get("bot", False),
         "timestamp": datetime.fromtimestamp(evenement["timestamp"], tz=timezone.utc),
     }
 
 
-print("En attente des événements Kafka...")
 ecrits = 0
 try:
     for message in consumer:
@@ -42,6 +44,6 @@ try:
         if ecrits % 100 == 0:
             print(ecrits, "documents écrits dans MongoDB")
 except KeyboardInterrupt:
-    print("Arrêt demandé")
+    pass
 finally:
     consumer.close()

@@ -1,4 +1,6 @@
 import json
+import time
+
 import requests
 import sseclient
 from kafka import KafkaProducer
@@ -13,20 +15,18 @@ producer = KafkaProducer(
     value_serializer=lambda v: json.dumps(v).encode("utf-8"),
 )
 
-import time
-
 
 def ouvrir_flux():
     reponse = requests.get(URL, headers=HEADERS, stream=True, timeout=(10, 60))
     reponse.raise_for_status()
     return sseclient.SSEClient(reponse)
 
+
 envoyes = 0
 attente = 1
 try:
     while True:
         try:
-            print("Connexion au flux Wikimedia...")
             client = ouvrir_flux()
             attente = 1
             for evenement in client.events():
@@ -43,7 +43,7 @@ try:
         time.sleep(attente)
         attente = min(attente * 2, 30)
 except KeyboardInterrupt:
-    print("Arrêt demandé")
+    pass
 finally:
     producer.flush()
     producer.close()
