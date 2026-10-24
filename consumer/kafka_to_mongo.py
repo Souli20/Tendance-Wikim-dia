@@ -1,12 +1,13 @@
 import json
+import os
 from datetime import datetime, timezone
 
 from kafka import KafkaConsumer
 from pymongo import MongoClient
 
 TOPIC = "wiki-changes"
-KAFKA_SERVER = "localhost:9092"
-MONGO_URI = "mongodb://localhost:27017"
+KAFKA_SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 DB_NAME = "wiki_db"
 COLLECTION = "events_raw"
 

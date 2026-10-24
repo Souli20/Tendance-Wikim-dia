@@ -1,0 +1,15 @@
+FROM apache/spark:4.0.4-scala2.13-java17-python3-ubuntu
+
+USER root
+
+RUN python3 -m pip install --no-cache-dir pymongo==4.18.3
+
+WORKDIR /app
+COPY spark/ /app/spark/
+
+ENV PYSPARK_PYTHON=python3 \
+    PYTHONUNBUFFERED=1
+
+RUN mkdir -p /tmp/spark-ivy && chown -R 185:185 /tmp/spark-ivy
+
+USER 185

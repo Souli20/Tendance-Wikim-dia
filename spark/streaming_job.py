@@ -1,3 +1,4 @@
+import os
 from datetime import timezone
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, from_json
@@ -5,7 +6,7 @@ from pyspark.sql.types import (
     StructType, StructField, StringType, LongType, IntegerType, BooleanType
 )
 
-KAFKA_SERVER = "localhost:9092"
+KAFKA_SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 TOPIC = "wiki-changes"
 
 spark = SparkSession.builder.appName("WikimediaTrends").master("local[2]").config("spark.sql.session.timeZone", "UTC").getOrCreate()
@@ -61,7 +62,7 @@ def ecrire_dans_mongo(lot, id_lot):
     lignes = lot.collect()
     if not lignes:
         return
-    collection = MongoClient("mongodb://localhost:27017")["wiki_db"]["trends_per_minute"]
+    collection = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))["wiki_db"]["trends_per_minute"]
     operations = []
     for ligne in lignes:
         debut = ligne["window"]["start"].astimezone(timezone.utc)

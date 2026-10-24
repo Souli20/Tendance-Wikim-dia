@@ -1,4 +1,5 @@
 import json
+import os
 import time
 
 import requests
@@ -8,7 +9,7 @@ from kafka import KafkaProducer
 URL = "https://stream.wikimedia.org/v2/stream/recentchange"
 HEADERS = {"User-Agent": "TendanceWikimedia/1.0 (projet universitaire ISSEA; davysouli400@gmail.com)"}
 TOPIC = "wiki-changes"
-KAFKA_SERVER = "localhost:9092"
+KAFKA_SERVER = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 
 producer = KafkaProducer(
     bootstrap_servers=KAFKA_SERVER,

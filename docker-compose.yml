@@ -1,0 +1,138 @@
+name: wikimedia-pulse
+
+services:
+  mongo:
+    image: mongo:7.0
+    ports:
+      - "27018:27017"
+    volumes:
+      - pulse_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  kafka:
+    image: apache/kafka:4.3.1
+    ports:
+      - "29094:29092"
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,EXTERNAL://localhost:29094"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+    volumes:
+      - pulse_kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 20s
+    restart: unless-stopped
+
+  kafka-init:
+    image: apache/kafka:4.3.1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command:
+      - /opt/kafka/bin/kafka-topics.sh
+      - --create
+      - --if-not-exists
+      - --topic
+      - wiki-changes
+      - --bootstrap-server
+      - kafka:9092
+      - --partitions
+      - "1"
+      - --replication-factor
+      - "1"
+    restart: "no"
+
+  producer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-u", "producer/wikimedia_to_kafka.py"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-u", "consumer/kafka_to_mongo.py"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      MONGO_URI: "mongodb://mongo:27017"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  spark:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    command:
+      - /opt/spark/bin/spark-submit
+      - --master
+      - "local[2]"
+      - --driver-memory
+      - 1g
+      - --conf
+      - spark.jars.ivy=/tmp/spark-ivy
+      - --packages
+      - org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.4
+      - --conf
+      - spark.sql.session.timeZone=UTC
+      - --conf
+      - spark.driver.bindAddress=0.0.0.0
+      - /app/spark/streaming_job.py
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      MONGO_URI: "mongodb://mongo:27017"
+      PYSPARK_PYTHON: "python3"
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_healthy
+    ports:
+      - "4041:4040"
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["streamlit", "run", "dashboard/app.py", "--server.address=0.0.0.0"]
+    environment:
+      MONGO_URI: "mongodb://mongo:27017"
+    ports:
+      - "8502:8501"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pulse_mongo_data:
+  pulse_kafka_data:

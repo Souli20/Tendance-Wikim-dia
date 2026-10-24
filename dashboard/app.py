@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -23,7 +24,7 @@ entete(
 
 @st.cache_resource
 def get_collection():
-    client = MongoClient("mongodb://localhost:27017")
+    client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
     return client["wiki_db"]["trends_per_minute"]
 
 
